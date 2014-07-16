@@ -62,7 +62,7 @@ void protect_memory_init()
 	for (i = dstart; i < dend; i+=PAGE_SIZE)
 	{
 		pot_table[*pot_index].page_start = i;
-		pot_table[*pot_index].status = 0;
+		pot_table[*pot_index].status = PUBLIC;
 		pot_table[*pot_index].waiter_number = 0;
 		(*pot_index)++;
 	}
@@ -75,15 +75,31 @@ void protect_memory ()
 	mprotect((void *)dstart, dlenth, PROT_NONE);
 }
 
+#define ERROR_sig(context)	((context)->uc_mcontext.gregs[REG_ERR])
+#define PF_PROT 1
+#define PF_WRITE 2
+
+
 static void page_fault_handler(int signum, siginfo_t *info, void *puc)
 {
 	unsigned long page_fault_addr = (unsigned long)info->si_addr;
 	unsigned long page_start_addr = page_fault_addr & 0xfffff000;
 	struct ucontext *uc = (struct ucontext *)puc;
 
-	fprintf (stderr, "[%d] fault page: %x, instr addr: %x\n", getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
+	int error_code = ERROR_sig(uc);
+	ac_type type;
 
-	acquire_ownership (page_start_addr, getpid(), 1);
+	if(error_code & PF_WRITE){
+		type = AC_WRITE;
+	}
+	else{
+		type = AC_READ;
+	}
+
+	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %x\n",type, getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
+
+	give_up_ownership(getpid());
+	acquire_ownership(page_start_addr, getpid(), type);
 
 	//fprintf (stderr, "[%d] fault page: %x, instr addr: %x, continue...\n", getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
 }
@@ -106,11 +122,11 @@ static void read_mode_file()
 	strcpy(mode_file, getenv("HOME"));
 	strcat(mode_file, "/.mode");
 
-	fd = open(mode_file, O_RDONLY, 00664);
+	fd = open(mode_file, O_RDONLY, 0x0664);
 	assert (fd != -1);
 
 	read (fd, &mode, sizeof(int));
-	fprintf (stderr, "mode: %s\n", mode?"replay":"record");
+	//fprintf (stderr, "mode: %s\n", mode?"replay":"record");
 
 	close(fd);
 
@@ -121,7 +137,7 @@ static void share_file_init()
 {
         FILE *fp = fopen("/proc/self/maps", "r");
         char exe[200] = "\0";
-	void *temp;
+		void *temp;
 
         readlink("/proc/self/exe", exe, 200);
         strcat (exe, "\0");
