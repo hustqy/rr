@@ -21,12 +21,13 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/user.h>
+#include<ucontext.h>
 
 #include "global.h"
 #include "protocal.h"
 
 int mode;//0: record; 1: replay
-unsigned int dstart, dend, dlenth;
+unsigned long dstart,dend,dlenth;
 
 struct pot_item *pot_table;
 spinlock_t *pot_lock;
@@ -53,9 +54,9 @@ void (* _libc_exit)(int) = NULL;
 
 void protect_memory_init()
 {
-	unsigned int i;
+	unsigned long i;
 
-	mprotect((void *)dstart, dlenth, PROT_NONE);
+	mprotect((void*)dstart, dlenth, PROT_NONE);
 
 	//fprintf (stderr, "**********pot item number: %d\n", *pot_index);
 
@@ -72,10 +73,12 @@ void protect_memory_init()
 
 void protect_memory ()
 {
-	mprotect((void *)dstart, dlenth, PROT_NONE);
+	mprotect((void*)dstart, dlenth, PROT_NONE);
 }
 
+
 #define ERROR_sig(context)	((context)->uc_mcontext.gregs[REG_ERR])
+#define RIP_sig(context)	((context)->uc_mcontext.gregs[REG_RIP])
 #define PF_PROT 1
 #define PF_WRITE 2
 
@@ -96,7 +99,7 @@ static void page_fault_handler(int signum, siginfo_t *info, void *puc)
 		type = AC_READ;
 	}
 
-	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %x\n",type, getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
+	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %x\n",type, getpid(), page_start_addr, RIP_sig(uc));
 
 	give_up_ownership(getpid());
 	acquire_ownership(page_start_addr, getpid(), type);
@@ -148,7 +151,7 @@ static void share_file_init()
                 fgets(xx, 200, fp);
                 if (strstr(xx, exe) && strstr(xx, "rw-p"))
                 {
-                        sscanf (xx, "%x-%x", &dstart, &dend);
+                        sscanf (xx, "%lx-%lx", &dstart, &dend);
                         break;
                 }
         }
@@ -222,4 +225,3 @@ int __libc_start_main(int (* main) (int, char **, char **),
 
 	return real__libc_start_main(main, argc, ubp_av, init, fini, rtld_fini, stack_end);
 }
-

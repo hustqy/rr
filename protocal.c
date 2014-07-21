@@ -47,7 +47,7 @@ void acquire_ownership (unsigned long page_start_addr, pid_t pid, ac_type type)
 	{
 		struct pot_item *pitem = &pot_table[i];
 
-		fprintf (stderr, "[%d] fault addr: %lx, item addr: %x\n", pid, page_start_addr, pitem->page_start);
+		fprintf (stderr, "[%d] fault addr: %lx, item addr: %lx\n", pid, page_start_addr, pitem->page_start);
 
 		if (pitem->page_start != page_start_addr)
 			continue;

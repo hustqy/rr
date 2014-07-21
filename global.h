@@ -15,7 +15,7 @@ struct wait_item
 
 struct pot_item
 {
-	unsigned int page_start;
+	unsigned long page_start;
 	//int status; /*0: public, 1: owned*/
 	//
 	page_state status;
