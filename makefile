@@ -1,7 +1,7 @@
 CC=gcc
 #CC=g++
-#CFLAGS=-g 
-CFLAGS=-g -mcmodel=large -fPIC
+CFLAGS=-g -fPIC
+#CFLAGS=-g -mcmodel=large -fPIC
 #LDFLAGS=-pthread -fPIC -shared -ldl 
 LDFLAGS=-ldl -pthread -fPIC -shared
 TESTFLAGS=-pthread
