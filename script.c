@@ -50,6 +50,8 @@ void start_cmd(int argc, char **argv)
 		putenv(env_string);
 		execvp(argv[2], argv+2);
 	}
+
+	// lvxiao: a new process?it waits for others to exit and say goodbye
 	else if (pid > 0)
 	{
 		waitpid(pid, &status, __WALL);
@@ -82,6 +84,6 @@ int main(int argc, char **argv)
 
 	start_cmd (argc, argv);
 
-	printf("bye\n");
+	printf("btrecorder:bye\n");
 	return 0;
 }

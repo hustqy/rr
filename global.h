@@ -4,7 +4,7 @@
 
 #include <signal.h>
 #include <sys/time.h>
-
+#include"protocal.h"
 #define POT_ITEM_NUMBER 100
 
 struct wait_item
@@ -15,8 +15,10 @@ struct wait_item
 
 struct pot_item
 {
-	unsigned int page_start;
-	int status; /*0: public, 1: owned*/
+	unsigned long page_start;
+	//int status; /*0: public, 1: owned*/
+	//
+	page_state status;
 	pid_t owner;
 	struct wait_item waiter[10];
 	int waiter_number;

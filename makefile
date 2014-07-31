@@ -1,5 +1,8 @@
 CC=gcc
-CFLAGS=-g
+#CC=g++
+CFLAGS=-g -fPIC
+#CFLAGS=-g -mcmodel=large -fPIC
+#LDFLAGS=-pthread -fPIC -shared -ldl 
 LDFLAGS=-ldl -pthread -fPIC -shared
 TESTFLAGS=-pthread
 
@@ -9,7 +12,7 @@ TEST=test
 
 all:
 	$(CC) $(CFLAGS) test.c -c -o test.o
-	$(CC) $(CFLAGS) malloc.c -c -o malloc.o
+#	$(CC) $(CFLAGS) malloc.c -c -o malloc.o
 	$(CC) $(CFLAGS) script.c -c -o script.o
 	$(CC) $(CFLAGS) main.c -c -o main.o
 	$(CC) $(CFLAGS) atomic.c -c -o atomic.o
@@ -18,7 +21,8 @@ all:
 	$(CC) $(CFLAGS) libc.c -c -o libc.o
 	$(CC) $(CFLAGS) $(TESTFLAGS) test.o -o $(TEST)
 	$(CC) $(CFLAGS) script.o -o $(WRAPPER)
-	$(CC) $(CFLAGS) $(LDFLAGS) main.o malloc.o atomic.o protocal.o pthread.o libc.o -o $(LIB)
+#	$(CC) $(CFLAGS) $(LDFLAGS) main.o atomic.o protocal.o pthread.o libc.o -o $(LIB)
+	$(CC) $(CFLAGS) main.o atomic.o protocal.o pthread.o libc.o $(LDFLAGS) -o $(LIB)
 
 clean:
 	rm -rf *.o $(TEST) $(WRAPPER) $(LIB)

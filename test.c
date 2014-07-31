@@ -3,16 +3,26 @@
 
 int x = 0;
 
+typedef enum{false,true}bool;
+bool y = false;
+
 void *child1(void *arg)
 {
-	x = 1;
-	malloc(NULL);
+	//x = 1;
+	//
+	printf("11111111111");
+
 	return NULL;
 }
 
 void *child2(void *arg)
 {
-	x = 2;
+	//x = 2;
+	
+	printf("2222222222");
+	sleep(1);
+	printf("xxx");
+	printf("\n");
 	return NULL;
 }
 

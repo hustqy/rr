@@ -4,7 +4,6 @@
 #include <unistd.h>
 
 #include "global.h"
-#include "protocal.h"
 
 void* malloc(size_t size)
 {

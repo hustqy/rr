@@ -23,7 +23,7 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_
         assert (pid >= 0);
         if ( pid == 0)
         {
-		protect_memory();
+				protect_memory();
                 start_routine(arg);
                 _exit (0);
         }

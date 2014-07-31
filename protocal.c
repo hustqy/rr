@@ -7,13 +7,38 @@
 #include <sys/mman.h>
 
 #include "global.h"
+#include "protocal.h"
 
-void acquire_ownership (unsigned long page_start_addr, pid_t pid, int type)
+//typedef enum { PUBLIC, SHARED_READ, OWNED_WRITE }page_state;
+//typedef enum { AC_READ, AC_WRITE }ac_type;
+typedef enum{false,true} bool;
+
+bool crew_prot(page_state ini_state, ac_type askfor_prio){
+
+	switch(ini_state){
+	
+		case PUBLIC: 
+			return true;
+		case SHARED_READ:
+			if(AC_READ == askfor_prio)return true;
+			else return false;
+		case OWNED_WRITE:
+			return false;
+		default:
+			printf("ERROR: illegal page state: %d",ini_state);
+			assert(0);
+	}
+}
+
+
+void acquire_ownership (unsigned long page_start_addr, pid_t pid, ac_type type)
 {
 	struct wait_item *pwaiter;
 	int i;
 
-retry:
+//retry:
+//
+	while(1){
 	pwaiter = NULL;
 
 	spin_lock (pot_lock);
@@ -22,17 +47,26 @@ retry:
 	{
 		struct pot_item *pitem = &pot_table[i];
 
+<<<<<<< HEAD
 		//fprintf (stderr, "[%d] fault addr: %x, item addr: %x\n", pid, page_start_addr, pitem->page_start);
+=======
+		fprintf (stderr, "[%d] fault addr: %lx, item addr: %lx\n", pid, page_start_addr, pitem->page_start);
+>>>>>>> 12388a7a10f08a52d4ca60ceeae55eb8920cdb47
 
 		if (pitem->page_start != page_start_addr)
 			continue;
 
-		if (pitem->status == 0)
+		if(crew_prot(pitem->status,type))
 		{
-			pitem->status = 1;
+			pitem->status = type;
 			pitem->owner = pid;
 
-			mprotect((void *)page_start_addr, PAGE_SIZE, PROT_READ | PROT_WRITE);
+			if(AC_WRITE == type){
+				mprotect((void *)page_start_addr, PAGE_SIZE, PROT_READ | PROT_WRITE);
+			}else{
+				mprotect((void *)page_start_addr, PAGE_SIZE, PROT_READ);
+			}
+
 
 			spin_unlock (pot_lock);
 
@@ -60,7 +94,8 @@ retry:
 		sched_yield();
 	}
 
-	goto retry;
+	}//end of while
+	//goto retry;
 }
 
 void give_up_ownership (pid_t pid)
@@ -74,13 +109,13 @@ void give_up_ownership (pid_t pid)
 		struct pot_item *pitem = &pot_table[i];
 		int j;
 
-		if (pitem->status == 0)
+		if (pitem->status == PUBLIC)
 			continue;
 
 		if (pitem->owner != pid)
 			continue;
 
-		pitem->status = 0;
+		pitem->status = PUBLIC;
 		mprotect((void *)pitem->page_start, PAGE_SIZE, PROT_NONE);
 
 		for (j = 0; j < pitem->waiter_number; j++)

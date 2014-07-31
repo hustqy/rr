@@ -21,12 +21,13 @@
 #include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/user.h>
+#include<ucontext.h>
 
 #include "global.h"
 #include "protocal.h"
 
 int mode;//0: record; 1: replay
-unsigned int dstart, dend, dlenth;
+unsigned long dstart,dend,dlenth;
 
 struct pot_item *pot_table;
 spinlock_t *pot_lock;
@@ -55,16 +56,16 @@ int (*_libc_open)(const char *path, int oflag, ... ) = NULL;
 
 void protect_memory_init()
 {
-	unsigned int i;
+	unsigned long i;
 
-	mprotect((void *)dstart, dlenth, PROT_NONE);
+	mprotect((void*)dstart, dlenth, PROT_NONE);
 
 	//fprintf (stderr, "**********pot item number: %d\n", *pot_index);
 
 	for (i = dstart; i < dend; i+=PAGE_SIZE)
 	{
 		pot_table[*pot_index].page_start = i;
-		pot_table[*pot_index].status = 0;
+		pot_table[*pot_index].status = PUBLIC;
 		pot_table[*pot_index].waiter_number = 0;
 		(*pot_index)++;
 	}
@@ -74,8 +75,15 @@ void protect_memory_init()
 
 void protect_memory ()
 {
-	mprotect((void *)dstart, dlenth, PROT_NONE);
+	mprotect((void*)dstart, dlenth, PROT_NONE);
 }
+
+
+#define ERROR_sig(context)	((context)->uc_mcontext.gregs[REG_ERR])
+#define RIP_sig(context)	((context)->uc_mcontext.gregs[REG_RIP])
+#define PF_PROT 1
+#define PF_WRITE 2
+
 
 static void page_fault_handler(int signum, siginfo_t *info, void *puc)
 {
@@ -83,9 +91,21 @@ static void page_fault_handler(int signum, siginfo_t *info, void *puc)
 	unsigned long page_start_addr = page_fault_addr & 0xfffff000;
 	struct ucontext *uc = (struct ucontext *)puc;
 
-//	fprintf (stderr, "[%d] fault page: %x, instr addr: %x\n", getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
+	int error_code = ERROR_sig(uc);
+	ac_type type;
 
-	acquire_ownership (page_start_addr, getpid(), 1);
+	if(error_code & PF_WRITE){
+		type = AC_WRITE;
+	}
+	else{
+		type = AC_READ;
+	}
+
+
+	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %x\n",type, getpid(), page_start_addr, RIP_sig(uc));
+
+	give_up_ownership(getpid());
+	acquire_ownership(page_start_addr, getpid(), type);
 
 	//fprintf (stderr, "[%d] fault page: %x, instr addr: %x, continue...\n", getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
 }
@@ -109,10 +129,11 @@ static void read_mode_file()
 	strcat(mode_file, "/.mode");
 	
 	fd = _libc_open(mode_file, O_RDONLY, 00664);
+
 	assert (fd != -1);
 
 	read (fd, &mode, sizeof(int));
-	fprintf (stderr, "mode: %s\n", mode?"replay":"record");
+	//fprintf (stderr, "mode: %s\n", mode?"replay":"record");
 
 	close(fd);
 
@@ -123,7 +144,7 @@ static void share_file_init()
 {
         FILE *fp = fopen("/proc/self/maps", "r");
         char exe[200] = "\0";
-	void *temp;
+		void *temp;
 
         readlink("/proc/self/exe", exe, 200);
         strcat (exe, "\0");
@@ -134,7 +155,7 @@ static void share_file_init()
                 fgets(xx, 200, fp);
                 if (strstr(xx, exe) && strstr(xx, "rw-p"))
                 {
-                        sscanf (xx, "%x-%x", &dstart, &dend);
+                        sscanf (xx, "%lx-%lx", &dstart, &dend);
                         break;
                 }
         }
@@ -209,4 +230,3 @@ int __libc_start_main(int (* main) (int, char **, char **),
 
 	return real__libc_start_main(main, argc, ubp_av, init, fini, rtld_fini, stack_end);
 }
-
