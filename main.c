@@ -39,6 +39,7 @@ static int (* real__libc_start_main)(int (*) (int, char **, char **), int, char 
 int (* _libc_sigaction)(int, const struct sigaction *, struct sigaction *) = NULL;
 int (* _libc_gettimeofday)(struct timeval *, struct timezone *) = NULL;
 void (* _libc_exit)(int) = NULL;
+int (*_libc_open)(const char *path, int oflag, ... ) = NULL;
 
 /*
 	Init the libaray
@@ -49,6 +50,7 @@ void (* _libc_exit)(int) = NULL;
 	_libc_sigaction = (int (*)(int, const struct sigaction *, struct sigaction *))dlsym(RTLD_NEXT, "sigaction"); \
 	_libc_gettimeofday = (int (*)(struct timeval *, struct timezone *))dlsym(RTLD_NEXT, "gettimeofday"); \
 	_libc_exit = (void (*)(int))dlsym(RTLD_NEXT, "_exit"); \
+	_libc_open = (int (*) (const char *path, int oflag, ... ))dlsym(RTLD_NEXT, "open");\
 }while(0);
 
 void protect_memory_init()
@@ -81,7 +83,7 @@ static void page_fault_handler(int signum, siginfo_t *info, void *puc)
 	unsigned long page_start_addr = page_fault_addr & 0xfffff000;
 	struct ucontext *uc = (struct ucontext *)puc;
 
-	fprintf (stderr, "[%d] fault page: %x, instr addr: %x\n", getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
+//	fprintf (stderr, "[%d] fault page: %x, instr addr: %x\n", getpid(), page_start_addr, uc->uc_mcontext.gregs[REG_EIP]);
 
 	acquire_ownership (page_start_addr, getpid(), 1);
 
@@ -105,8 +107,8 @@ static void read_mode_file()
 
 	strcpy(mode_file, getenv("HOME"));
 	strcat(mode_file, "/.mode");
-
-	fd = open(mode_file, O_RDONLY, 00664);
+	
+	fd = _libc_open(mode_file, O_RDONLY, 00664);
 	assert (fd != -1);
 
 	read (fd, &mode, sizeof(int));
@@ -151,7 +153,7 @@ static void share_file_init()
 	int share_file_fd;
 	strcpy(share_file, getenv("HOME"));
         strcat(share_file, "/.tmp");
-	share_file_fd = open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
+	share_file_fd = _libc_open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
 	assert (share_file_fd != -1);
 	lseek (share_file_fd, dlenth, SEEK_SET);
 	write (share_file_fd, " ", 1);
@@ -171,7 +173,7 @@ void pot_item_init()
 
         strcpy(share_file, getenv("HOME"));
         strcat(share_file, "/.pottmp");
-        share_file_fd = open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
+        share_file_fd = _libc_open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
         assert (share_file_fd != -1);
 
 	length = sizeof(spinlock_t) + sizeof(struct pot_item) * POT_ITEM_NUMBER + sizeof(unsigned int);
@@ -194,9 +196,10 @@ int __libc_start_main(int (* main) (int, char **, char **),
 		 int argc, char ** ubp_av, void (* init)(void),
 		 void (* fini) (void), void (* rtld_fini) (void), void * stack_end)
 {
+	INIT_LIBC_ROUTINE;
 	read_mode_file();
 
-	INIT_LIBC_ROUTINE;
+	
 	signal_init();
 	share_file_init();
 

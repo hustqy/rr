@@ -22,7 +22,7 @@ retry:
 	{
 		struct pot_item *pitem = &pot_table[i];
 
-		fprintf (stderr, "[%d] fault addr: %x, item addr: %x\n", pid, page_start_addr, pitem->page_start);
+		//fprintf (stderr, "[%d] fault addr: %x, item addr: %x\n", pid, page_start_addr, pitem->page_start);
 
 		if (pitem->page_start != page_start_addr)
 			continue;
