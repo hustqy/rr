@@ -41,6 +41,7 @@ void _exit (int status)
 
 	give_up_ownership (pid);
 
+	printf("[%d] is exiting now\n");
 	_libc_exit (status);
 
 	assert(0);

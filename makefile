@@ -11,7 +11,8 @@ LIB=libxxx.so
 TEST=test
 
 all:
-	$(CC) $(CFLAGS) test.c -c -o test.o
+	$(CC) test.c -c -o test.o
+	$(CC) $(TESTFLAGS) test.o -o $(TEST)
 #	$(CC) $(CFLAGS) malloc.c -c -o malloc.o
 	$(CC) $(CFLAGS) script.c -c -o script.o
 	$(CC) $(CFLAGS) main.c -c -o main.o
@@ -19,7 +20,6 @@ all:
 	$(CC) $(CFLAGS) protocal.c -c -o protocal.o
 	$(CC) $(CFLAGS) pthread.c -c -o pthread.o
 	$(CC) $(CFLAGS) libc.c -c -o libc.o
-	$(CC) $(CFLAGS) $(TESTFLAGS) test.o -o $(TEST)
 	$(CC) $(CFLAGS) script.o -o $(WRAPPER)
 #	$(CC) $(CFLAGS) $(LDFLAGS) main.o atomic.o protocal.o pthread.o libc.o -o $(LIB)
 	$(CC) $(CFLAGS) main.o atomic.o protocal.o pthread.o libc.o $(LDFLAGS) -o $(LIB)

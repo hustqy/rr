@@ -47,22 +47,28 @@ void acquire_ownership (unsigned long page_start_addr, pid_t pid, ac_type type)
 	{
 		struct pot_item *pitem = &pot_table[i];
 
-		fprintf (stderr, "[%d] fault addr: %lx, item addr: %lx\n", pid, page_start_addr, pitem->page_start);
 
 		if (pitem->page_start != page_start_addr)
 			continue;
+		
+		//fprintf (stderr, "[%d] fault addr: %lx, item addr: %lx\n", pid, page_start_addr, pitem->page_start);
 
 		if(crew_prot(pitem->status,type))
 		{
-			pitem->status = type;
+
+			printf("page %lx is %d\n",page_start_addr,pitem->status);
+
 			pitem->owner = pid;
 
 			if(AC_WRITE == type){
 				mprotect((void *)page_start_addr, PAGE_SIZE, PROT_READ | PROT_WRITE);
+				pitem->status = OWNED_WRITE;
 			}else{
 				mprotect((void *)page_start_addr, PAGE_SIZE, PROT_READ);
+				pitem->status = SHARED_READ;
 			}
 
+			fprintf (stderr, "[%d] got page %lx\n", pid,page_start_addr);
 
 			spin_unlock (pot_lock);
 
@@ -70,6 +76,7 @@ void acquire_ownership (unsigned long page_start_addr, pid_t pid, ac_type type)
 		}
 		else
 		{
+			fprintf (stderr, "[%d] waiting \n", pid);
 			pwaiter = &pitem->waiter[pitem->waiter_number];
 
 			assert (pitem->owner != pid);
@@ -113,6 +120,8 @@ void give_up_ownership (pid_t pid)
 
 		pitem->status = PUBLIC;
 		mprotect((void *)pitem->page_start, PAGE_SIZE, PROT_NONE);
+
+		printf("[%d]:give up page %p\n",pid,(void*)pitem->page_start);
 
 		for (j = 0; j < pitem->waiter_number; j++)
 		//for (j = pitem->waiter_number-1; j >= 0; j--)

@@ -27,11 +27,12 @@
 #include "protocal.h"
 
 int mode;//0: record; 1: replay
-unsigned long dstart,dend,dlenth;
+unsigned long dstart[100],dlenth[100];
+int n_shared;
 
 struct pot_item *pot_table;
 spinlock_t *pot_lock;
-unsigned int *pot_index;
+unsigned long *pot_index;
 
 /*
 	GLIBC Functions
@@ -54,18 +55,21 @@ void (* _libc_exit)(int) = NULL;
 
 void protect_memory_init()
 {
+
+	//protect_memory();
+		mprotect((void*)dstart[0], dlenth[0], PROT_NONE);
+	
+	int j;
 	unsigned long i;
 
-	mprotect((void*)dstart, dlenth, PROT_NONE);
-
-	//fprintf (stderr, "**********pot item number: %d\n", *pot_index);
-
-	for (i = dstart; i < dend; i+=PAGE_SIZE)
-	{
-		pot_table[*pot_index].page_start = i;
-		pot_table[*pot_index].status = PUBLIC;
-		pot_table[*pot_index].waiter_number = 0;
-		(*pot_index)++;
+	for(j = 0; j < n_shared; ++j){
+		for(i = dstart[j]; i < dstart[j]+dlenth[j]; i+=PAGE_SIZE){
+			pot_table[*pot_index].page_start = i;
+			pot_table[*pot_index].status = PUBLIC;
+			pot_table[*pot_index].waiter_number = 0;
+			(*pot_index)++;
+			fprintf (stderr, "**********pot item number: %d\n", *pot_index);
+		}
 	}
 
 	//fprintf (stderr, "***********pot item number: %d\n", *pot_index);
@@ -73,7 +77,11 @@ void protect_memory_init()
 
 void protect_memory ()
 {
-	mprotect((void*)dstart, dlenth, PROT_NONE);
+	int i;
+	fprintf(stderr,"in protect memory: n_shared = %d\n",n_shared);
+	for(i=0;i<n_shared;++i){
+		mprotect((void*)dstart[i], dlenth[i], PROT_NONE);
+	}
 }
 
 
@@ -99,7 +107,7 @@ static void page_fault_handler(int signum, siginfo_t *info, void *puc)
 		type = AC_READ;
 	}
 
-	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %x\n",type, getpid(), page_start_addr, RIP_sig(uc));
+	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %p\n",type, getpid(), page_start_addr, (void *)RIP_sig(uc));
 
 	give_up_ownership(getpid());
 	acquire_ownership(page_start_addr, getpid(), type);
@@ -115,6 +123,7 @@ static void signal_init()
 	act.sa_flags = SA_SIGINFO;
 	act.sa_sigaction = page_fault_handler;
 	_libc_sigaction(SIGSEGV, &act, NULL);
+	printf("end of signal_init\n");
 }
 
 static void read_mode_file()
@@ -125,60 +134,101 @@ static void read_mode_file()
 	strcpy(mode_file, getenv("HOME"));
 	strcat(mode_file, "/.mode");
 
-	fd = open(mode_file, O_RDONLY, 0x0664);
+	fd = open(mode_file, O_RDONLY, 00664);
+	//fd = open(mode_file, O_RDONLY);
 	assert (fd != -1);
 
 	read (fd, &mode, sizeof(int));
-	//fprintf (stderr, "mode: %s\n", mode?"replay":"record");
+	fprintf (stderr, "mode: %s\n\n", mode?"replay":"record");
 
 	close(fd);
 
 	unlink(mode_file);
+	printf("end of read_mode_file\n");
+}
+
+static int find_globals(){
+	
+	FILE *fp = fopen("/proc/self/maps", "r");
+    char exe[200] = "\0";
+	unsigned long dend;
+	unsigned long max_len= 0;
+                                                                                    
+	//lvxiao: for debug
+	//printf("sharing globals******************\n");
+                                                                                    
+    readlink("/proc/self/exe", exe, 200);
+    strcat (exe, "\0");
+	char blank[2]= "[";
+
+	n_shared = 0;
+
+    while (!feof (fp))
+    {
+            char xx[200];
+                                                                                    
+            fgets(xx, 200, fp);
+            //if (strstr(xx, exe) && strstr(xx, "rw-p"))
+            if (!strstr(xx, blank) && strstr(xx, "rw-p"))
+            {
+                sscanf (xx, "%lx-%lx", &dstart[n_shared], &dend);
+				dlenth[n_shared] = dend - dstart[n_shared];
+				if(dlenth[n_shared] > max_len){
+					max_len = dlenth[n_shared];
+				}
+				n_shared++;
+
+				//printf("dstart:%lx\n************** dend:%lx\n",dstart[n_shared],dend);
+                //should not break here,usually there's an anonymous block here;
+            }
+    }
+    fclose(fp);
+	printf("end of find_globals, max_len = %lx\n",max_len);
+	return max_len;
 }
 
 static void share_file_init()
 {
-        FILE *fp = fopen("/proc/self/maps", "r");
-        char exe[200] = "\0";
-		void *temp;
-
-        readlink("/proc/self/exe", exe, 200);
-        strcat (exe, "\0");
-        while (!feof (fp))
-        {
-                char xx[200];
-
-                fgets(xx, 200, fp);
-                if (strstr(xx, exe) && strstr(xx, "rw-p"))
-                {
-                        sscanf (xx, "%lx-%lx", &dstart, &dend);
-                        break;
-                }
-        }
-        fclose(fp);
-
-	dlenth = dend - dstart;
-
-	temp = mmap (NULL, dlenth, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	assert (temp != MAP_FAILED);
-
-	memcpy (temp, (const void *)dstart, dlenth);
-
-	munmap ((void *)dstart, dlenth);
+	//1. find globals, store their place in array dstart,dlength
+	//   and return  max_len, to tell how large a tmp is needed
 	
+	unsigned long max_len = find_globals();
+
+	//2.mmap a tmp block enough for all shared sections
+	
+	void *temp;
+	temp = mmap (NULL, max_len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+	assert (temp != MAP_FAILED);
+	
+	//3. open a file to map globals as shared
+
 	char share_file[100];
 	int share_file_fd;
 	strcpy(share_file, getenv("HOME"));
-        strcat(share_file, "/.tmp");
-	share_file_fd = open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
+    strcat(share_file, "/.tmp");
 	assert (share_file_fd != -1);
-	lseek (share_file_fd, dlenth, SEEK_SET);
-	write (share_file_fd, " ", 1);
-	assert(mmap ((void *)dstart, dlenth, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, share_file_fd, 0) != MAP_FAILED);
 
-	assert (memcpy ((void *)dstart, (const void *)temp, dlenth));
-	munmap (temp, dlenth);
-	close (share_file_fd);
+	//4.for each section to be shared, backup,share, and restore
+	
+	int i;
+	for(i=0;i<n_shared;++i){ 
+		memcpy (temp, (const void *)dstart[i], dlenth[i]);
+		munmap ((void *)dstart[i], dlenth[i]);
+	
+		share_file_fd = open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
+		lseek (share_file_fd, dlenth[i], SEEK_SET);
+		write (share_file_fd, " ", 1);
+	
+		assert(mmap ((void *)dstart[i], dlenth[i], PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED, share_file_fd, 0) != MAP_FAILED);
+		assert (memcpy ((void *)dstart[0], (const void *)temp, dlenth[0]));
+	
+		close (share_file_fd);
+	}
+	
+	//5.unmap the tmp
+
+	munmap (temp, dlenth[0]);
+	printf("end of share_file_init\n");
 }
 
 void pot_item_init()
@@ -194,14 +244,14 @@ void pot_item_init()
         assert (share_file_fd != -1);
 
 	length = sizeof(spinlock_t) + sizeof(struct pot_item) * POT_ITEM_NUMBER + sizeof(unsigned int);
-        lseek (share_file_fd, length, SEEK_SET);
-        write (share_file_fd, " ", 1);
-        shared_region = mmap (NULL, dlenth, PROT_READ | PROT_WRITE, MAP_SHARED, share_file_fd, 0);
+    lseek (share_file_fd, length, SEEK_SET);
+    write (share_file_fd, " ", 1);
+    shared_region = mmap (NULL, dlenth[0], PROT_READ | PROT_WRITE, MAP_SHARED, share_file_fd, 0);
 	assert (shared_region != MAP_FAILED);
 
 	pot_lock = (spinlock_t *)shared_region;
-	pot_index = (unsigned int *)((long)pot_lock + sizeof(spinlock_t));
-	pot_table = (struct pot_item *)((long)pot_index + sizeof(unsigned int));
+	pot_index = (unsigned long*)((long)pot_lock + sizeof(spinlock_t));
+	pot_table = (struct pot_item *)((long)pot_index + sizeof(unsigned long));
 
 	*pot_lock = SPIN_LOCK_UNLOCKED;
 	*pot_index = 0;
@@ -221,7 +271,7 @@ int __libc_start_main(int (* main) (int, char **, char **),
 
 	pot_item_init();
 
-	//printf("in my libc_start_main\n");
+	printf("end of my libc_start_main\n");
 
 	return real__libc_start_main(main, argc, ubp_av, init, fini, rtld_fini, stack_end);
 }

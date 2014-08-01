@@ -29,8 +29,10 @@ void write_mode_file (int mode)
 	strcat (mode_file, "/.mode");
 
 	fd = open(mode_file, O_CREAT | O_RDWR | O_TRUNC, 00664);
+	//fd = open(mode_file, O_CREAT | O_RDWR | O_TRUNC);
 	assert (fd != -1);
 	write (fd, &mode, sizeof(int));
+	//printf("modefile = %s ----------fd = %d\n",mode_file,fd);
 
 	close (fd);
 }
@@ -49,11 +51,13 @@ void start_cmd(int argc, char **argv)
 		strcat(env_string, SO_PATH);
 		putenv(env_string);
 		execvp(argv[2], argv+2);
+		printf("should never come here\n");
+		assert(0);
 	}
-
 	// lvxiao: a new process?it waits for others to exit and say goodbye
 	else if (pid > 0)
 	{
+		printf("mypid = %d , child pid = %d\n",getpid(),pid);
 		waitpid(pid, &status, __WALL);
 	}
 }
