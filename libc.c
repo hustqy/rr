@@ -15,6 +15,8 @@ typedef unsigned int uint32;
 typedef int int32;
 
 #define wrapper_gettimeofday gettimeofday
+#define wrapper_open open
+
 
 extern int mode;
 
@@ -32,7 +34,13 @@ typedef struct libcfunc_event {
 	char retval[];
 }libc_e;
 
+int wrapper_open(const char *path, int oflag, ...) {
+	puts("invoking library function open!");
+	return -1;
 
+
+}
+	
 void _exit (int status)
 {
 	pid_t pid = getpid();

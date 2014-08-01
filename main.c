@@ -41,6 +41,7 @@ static int (* real__libc_start_main)(int (*) (int, char **, char **), int, char 
 int (* _libc_sigaction)(int, const struct sigaction *, struct sigaction *) = NULL;
 int (* _libc_gettimeofday)(struct timeval *, struct timezone *) = NULL;
 void (* _libc_exit)(int) = NULL;
+int (*_libc_open)(const char *path, int oflag, ... ) = NULL;
 
 /*
 	Init the libaray
@@ -51,6 +52,7 @@ void (* _libc_exit)(int) = NULL;
 	_libc_sigaction = (int (*)(int, const struct sigaction *, struct sigaction *))dlsym(RTLD_NEXT, "sigaction"); \
 	_libc_gettimeofday = (int (*)(struct timeval *, struct timezone *))dlsym(RTLD_NEXT, "gettimeofday"); \
 	_libc_exit = (void (*)(int))dlsym(RTLD_NEXT, "_exit"); \
+	_libc_open = (int (*) (const char *path, int oflag, ... ))dlsym(RTLD_NEXT, "open");\
 }while(0);
 
 void protect_memory_init()
@@ -107,7 +109,12 @@ static void page_fault_handler(int signum, siginfo_t *info, void *puc)
 		type = AC_READ;
 	}
 
+<<<<<<< HEAD
 	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %p\n",type, getpid(), page_start_addr, (void *)RIP_sig(uc));
+=======
+
+	fprintf (stderr, "actype: %d \n[%d] fault page: %lx, instr addr: %x\n",type, getpid(), page_start_addr, RIP_sig(uc));
+>>>>>>> dbf9ebc9f3eae75ff22cc980eaa878aa33ccfc4f
 
 	give_up_ownership(getpid());
 	acquire_ownership(page_start_addr, getpid(), type);
@@ -133,9 +140,14 @@ static void read_mode_file()
 
 	strcpy(mode_file, getenv("HOME"));
 	strcat(mode_file, "/.mode");
+	
+	fd = _libc_open(mode_file, O_RDONLY, 00664);
 
+<<<<<<< HEAD
 	fd = open(mode_file, O_RDONLY, 00664);
 	//fd = open(mode_file, O_RDONLY);
+=======
+>>>>>>> dbf9ebc9f3eae75ff22cc980eaa878aa33ccfc4f
 	assert (fd != -1);
 
 	read (fd, &mode, sizeof(int));
@@ -206,6 +218,7 @@ static void share_file_init()
 	int share_file_fd;
 	strcpy(share_file, getenv("HOME"));
     strcat(share_file, "/.tmp");
+	share_file_fd = _libc_open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
 	assert (share_file_fd != -1);
 
 	//4.for each section to be shared, backup,share, and restore
@@ -240,7 +253,7 @@ void pot_item_init()
 
         strcpy(share_file, getenv("HOME"));
         strcat(share_file, "/.pottmp");
-        share_file_fd = open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
+        share_file_fd = _libc_open(share_file, O_CREAT | O_RDWR | O_TRUNC, 00777);
         assert (share_file_fd != -1);
 
 	length = sizeof(spinlock_t) + sizeof(struct pot_item) * POT_ITEM_NUMBER + sizeof(unsigned int);
@@ -263,9 +276,10 @@ int __libc_start_main(int (* main) (int, char **, char **),
 		 int argc, char ** ubp_av, void (* init)(void),
 		 void (* fini) (void), void (* rtld_fini) (void), void * stack_end)
 {
+	INIT_LIBC_ROUTINE;
 	read_mode_file();
 
-	INIT_LIBC_ROUTINE;
+	
 	signal_init();
 	share_file_init();
 
