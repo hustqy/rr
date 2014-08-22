@@ -33,13 +33,14 @@ typedef struct libcfunc_event {
 	int32 arg_num;
 	char retval[];
 }libc_e;
-
+/*
 int wrapper_open(const char *path, int oflag, ...) {
 	puts("invoking library function open!");
 	return -1;
 
 
 }
+*/
 	
 void _exit (int status)
 {
@@ -49,7 +50,7 @@ void _exit (int status)
 
 	give_up_ownership (pid);
 
-	printf("[%d] is exiting now\n");
+	printf("[%d] is exiting now\n",get(pid));
 	_libc_exit (status);
 
 	assert(0);

@@ -41,6 +41,6 @@ extern void protect_memory();
 
 extern struct pot_item *pot_table;
 extern spinlock_t *pot_lock;
-extern unsigned int *pot_index;
+extern unsigned long *pot_index;
 
 #endif

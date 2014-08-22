@@ -54,11 +54,12 @@ void start_cmd(int argc, char **argv)
 		printf("should never come here\n");
 		assert(0);
 	}
-	// lvxiao: a new process?it waits for others to exit and say goodbye
+	// lvxiao: a new process? It starts app and the parent waits for child to exit and say goodbye
 	else if (pid > 0)
 	{
 		printf("mypid = %d , child pid = %d\n",getpid(),pid);
 		waitpid(pid, &status, __WALL);
+		//exit(0);
 	}
 }
 
