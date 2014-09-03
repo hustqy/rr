@@ -4,6 +4,8 @@
 
 #include <signal.h>
 #include <sys/time.h>
+#include <unistd.h>
+
 #include"protocal.h"
 #define POT_ITEM_NUMBER 100
 
@@ -35,6 +37,12 @@ extern inline int spin_trylock(spinlock_t *);
 extern int (* _libc_sigaction)(int, const struct sigaction *, struct sigaction *);
 extern int (* _libc_gettimeofday)(struct timeval *, struct timezone *);
 extern void (* _libc_exit)(int);
+extern int (* _libc_open)(const char *, int, ... );
+extern ssize_t (* _libc_read)(int, void *, size_t);
+extern off_t (* _libc_lseek)(int, off_t, int);
+extern int (* _libc_close)(int);
+extern ssize_t (* _libc_write)(int, const void *, size_t);
+
 
 extern void protect_memory_init();
 extern void protect_memory();

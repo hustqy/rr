@@ -2,21 +2,13 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <string.h>
 
 #include "global.h"
 #include "protocal.h"
 
-#include <sys/time.h>
-#include <string.h>
-
-#define IA32
-
-typedef unsigned int uint32;
-typedef int int32;
-
 #define wrapper_gettimeofday gettimeofday
-#define wrapper_open open
-
 
 extern int mode;
 
@@ -28,19 +20,11 @@ enum {
 
 #define STR_MAX 128
 typedef struct libcfunc_event {
-	int32 func_id;
+	int func_id;
 	pid_t pid;
-	int32 arg_num;
+	int arg_num;
 	char retval[];
 }libc_e;
-/*
-int wrapper_open(const char *path, int oflag, ...) {
-	puts("invoking library function open!");
-	return -1;
-
-
-}
-*/
 	
 void _exit (int status)
 {
@@ -65,14 +49,14 @@ void write_libcfunc_log(libc_e *libc_info) {
 	free(libcfunc_info);
 }
 
-char *query_libcfunc(int32 func_id, pid_t pid) {
+char *query_libcfunc(int func_id, pid_t pid) {
 	static char tmp[] = "0, 1405083227, 519493, -480, 0";
 	return tmp;
 
 
 }
 #endif
-int32 wrapper_gettimeofday(struct timeval *tp, struct timezone *tzp) {
+int wrapper_gettimeofday(struct timeval *tp, struct timezone *tzp) {
 	//puts("invoking gettimeofday~~~");
 	pid_t pid = getpid();
 	give_up_ownership(pid);
@@ -83,19 +67,19 @@ int32 wrapper_gettimeofday(struct timeval *tp, struct timezone *tzp) {
 
 	char *retval = (char *)malloc(STR_MAX); // order: ret, tv_sec, tv_usec, tz_minuteswest, tz_dsttime
 	
-	int32 ret = _libc_gettimeofday(&tv, &tz);  // invoke real libc_func
+	int ret = _libc_gettimeofday(&tv, &tz);  // invoke real libc_func
 	
 	if (mode) {   // replay
 		//puts("replay gettimeofday");
 
 		struct timeval tv_log;
 		struct timezone tz_log;	
-		int32 ret_log;
+		int ret_log;
 		
 		char *libc_info_retval = query_libcfunc(GETTIMEOFDAY, pid);
 		puts(libc_info_retval);
 
-#if defined IA32
+#ifdef IA32
 		sscanf(libc_info_retval, "%d, %d, %d, %d, %d", ret, &(tv_log.tv_sec), &(tv_log.tv_usec), &(tz_log.tz_minuteswest), &(tz_log.tz_dsttime));
 #elif defined IA64
 		sscanf(libc_info_retval, "%d, %lld, %lld, %d, %d", ret, &(tv_log.tv_sec), &(tv_log.tv_usec), &(tz_log.tz_minuteswest), &(tz_log.tz_dsttime));
@@ -111,7 +95,7 @@ int32 wrapper_gettimeofday(struct timeval *tp, struct timezone *tzp) {
 
 	} else {    // record
 		puts("record gettimeofday");
-#if defined IA32
+#ifdef IA32
 		sprintf(retval, "%d, %d, %d, %d, %d", ret, (ret == -1) ? -1: tv.tv_sec, (ret == -1) ? -1: tv.tv_usec, (ret == -1) ? -1: tz.tz_minuteswest, (ret == -1) ? -1: tz.tz_dsttime);
 #elif defined IA64
 		sprintf(retval, "%d, %lld, %lld, %d, %d", ret, (ret == -1) ? -1: tv.tv_sec, (ret == -1) ? -1: tv.tv_usec, (ret == -1) ? -1: tz.tz_minuteswest, (ret == -1) ? -1: tz.tz_dsttime);

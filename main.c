@@ -41,7 +41,11 @@ static int (* real__libc_start_main)(int (*) (int, char **, char **), int, char 
 int (* _libc_sigaction)(int, const struct sigaction *, struct sigaction *) = NULL;
 int (* _libc_gettimeofday)(struct timeval *, struct timezone *) = NULL;
 void (* _libc_exit)(int) = NULL;
-int (*_libc_open)(const char *path, int oflag, ... ) = NULL;
+int (*_libc_open)(const char *, int, ... ) = NULL;
+ssize_t (*_libc_read)(int, void *, size_t) = NULL;
+off_t (* _libc_lseek)(int, off_t, int) = NULL;
+int (* _libc_close)(int) = NULL;
+ssize_t (* _libc_write)(int, const void *, size_t) = NULL;
 
 /*
 	Init the libaray
@@ -53,6 +57,10 @@ int (*_libc_open)(const char *path, int oflag, ... ) = NULL;
 	_libc_gettimeofday = (int (*)(struct timeval *, struct timezone *))dlsym(RTLD_NEXT, "gettimeofday"); \
 	_libc_exit = (void (*)(int))dlsym(RTLD_NEXT, "_exit"); \
 	_libc_open = (int (*) (const char *path, int oflag, ... ))dlsym(RTLD_NEXT, "open");\
+	_libc_read = (ssize_t (*)(int fildes, void *buf, size_t nbyte))dlsym(RTLD_NEXT, "read");\
+	_libc_lseek = (off_t (*)(int fildes, off_t offset, int whence))dlsym(RTLD_NEXT, "lseek");\
+	_libc_close = (int (*)(int fildes))dlsym(RTLD_NEXT, "close");\
+	_libc_write = (ssize_t (*)(int fildes, const void *buf, size_t nbyte))dlsym(RTLD_NEXT, "write");\
 }while(0);
 
 void protect_memory_init()
@@ -144,13 +152,12 @@ static void read_mode_file()
 	
 	fd = _libc_open(mode_file, O_RDONLY, 00664);
 
-	fd = open(mode_file, O_RDONLY, 00664);
 	assert (fd != -1);
 
-	read (fd, &mode, sizeof(int));
+	_libc_read(fd, &mode, sizeof(int));
 	fprintf (stderr, "mode: %s\n\n", mode?"replay":"record");
 
-	close(fd);
+	_libc_close(fd);
 
 	unlink(mode_file);
 	printf("end of read_mode_file\n");
@@ -318,6 +325,7 @@ int __libc_start_main(int (* main) (int, char **, char **),
 
 	pot_item_init();
 	signal_init();
+
 	//printf("end of my libc_start_main\n");
 	//sleep(10);
 

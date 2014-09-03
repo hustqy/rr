@@ -6,8 +6,10 @@
 
 #include "global.h"
 #include "protocal.h"
+#include "wrapper_io.h"
 
 int protected = 0;
+int fork_io = 0;
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg)
 {
@@ -25,6 +27,21 @@ int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_
                 protected = 1;
         }
 
+		if (!fork_io) {
+			IO_init();   // prepare for IO_wrapper functions
+
+			pid_t io_pid;
+			io_pid = fork();
+			if (io_pid == 0) {
+				IO_pid = getpid();
+				do_listen_socket();
+				io_process();
+				_libc_exit(88);
+			}
+			sleep(2);   // wait until io has been ready to handle connection request
+			fork_io = 1;
+		}
+		
 	printf("going to fork now\n");
         pid = fork();
         assert (pid >= 0);
