@@ -3,8 +3,7 @@
 
 #include "smsys.h"
 
-
-int     sminit(void);
+extern taddr    sminit(void);
 
 extern void    *smmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
 

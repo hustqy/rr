@@ -34,6 +34,8 @@ struct pot_item *pot_table;
 spinlock_t *pot_lock;
 unsigned long *pot_index;
 
+extern void * share_malloc_data();
+
 /*
 	GLIBC Functions
 */
@@ -325,6 +327,9 @@ int __libc_start_main(int (* main) (int, char **, char **),
 
 	pot_item_init();
 	signal_init();
+
+    /*added by bwtang, init the rr_malloc for rr_system*/
+    void *start_malloc_addr = share_malloc_data();
 
 	//printf("end of my libc_start_main\n");
 	//sleep(10);

@@ -8,8 +8,13 @@
 # define size_t                 unsigned int
 #endif
 
+#include <stdio.h>
+#include <unistd.h>
 #include <sys/types.h>
+#include <sys/mman.h>
 #include "global.h"
+
+#define __rrself__
 
 #ifdef __x86_64__
     typedef unsigned long int   taddr; 
